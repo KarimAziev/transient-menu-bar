@@ -1,0 +1,35 @@
+* transient-menu-bar
+
+Transient access to menu-bar.
+
+** Installation
+
+Emacs >= 28.1 is required.
+
+*** Manual
+
+Download the source code and put it wherever you like, e.g. into =~/.emacs.d/transient-menu-bar/=
+
+#+begin_src shell :eval no
+git clone https://github.com/KarimAziev/transient-menu-bar.git ~/.emacs.d/transient-menu-bar/
+#+end_src
+
+Add the downloaded directory to the load path:
+
+#+begin_src elisp :eval no
+(add-to-list 'load-path "~/.emacs.d/transient-menu-bar/")
+(require 'transient-menu-bar)
+#+end_src
+
+#+begin_src elisp :eval no
+(use-package transient-menu-bar
+  :straight (transient-menu-bar
+             :repo "KarimAziev/transient-menu-bar"
+             :type git
+             :host github)
+  :commands (transient-menu-bar))
+#+end_src
+*** Usage
+=M-x transient-menu-bar RET=  
+
+will popup a transient menu with available commands.
