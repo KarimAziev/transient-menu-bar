@@ -28,15 +28,42 @@
 
 ;;; Code:
 
-(defcustom transient-menu-bar-symbol-suffixes-props '((next-buffer :transient t)
-                                                      (previous-buffer
-                                                       :transient t))
+(defvar transient-menu-bar-default-transient-commands
+  '(flymake-goto-prev-error
+    flymake-goto-next-error
+    next-buffer
+    previous-buffer
+    org-toggle-link-display
+    org-previous-link
+    org-next-link
+    outline-backward-same-level
+    outline-forward-same-level
+    outline-previous-visible-heading
+    outline-up-heading
+    outline-next-visible-heading
+    hs-hide-all hs-show-all
+    hs-hide-block
+    hs-hide-level
+    hs-show-block
+    hs-toggle-hiding
+    hs-hide-initial-comment-block))
+
+(defcustom transient-menu-bar-symbol-suffixes-props (mapcar
+                                                     (lambda (it)
+                                                       `(,it :transient t))
+                                                     transient-menu-bar-default-transient-commands)
   "Alist of functions and extra props for transient."
   :group 'transient-menu-bar
   :type '(alist
           :key-type (function :tag "Symbol")
           :value-type
           (plist :options ((:transient boolean)))))
+
+(defcustom transient-menu-bar-generated-prefix-name-suffix
+  "-dispatch-menu-transient"
+  "Suffix to append to generated transient prefixes."
+  :type 'string
+  :group 'transient-menu-bar)
 
 (defun transient-menu-bar--get-alphabete (&optional start-char n)
   "Return N letters from alphabete starting at START-CHAR.
@@ -63,7 +90,7 @@ Default value for START-CHAR is \"a\" and for N - 26."
     result))
 
 (defun transient-menu-bar--map-keywords (item &optional description)
-  "Transform menu bar ITEM props to transient.
+  "Map props of menu ITEM to transient slots.
 DESCRIPTION should be a string."
   (let* ((keys (seq-filter 'keywordp item))
          (pl (transient-menu-bar-plist-pick  keys item))
@@ -96,71 +123,29 @@ DESCRIPTION should be a string."
         (setq new-pl (append new-pl res))))
     new-pl))
 
+(defun transient-menu-bar-shortcut-pred (used-keys key)
+  "Return non nil if KEY is a valid and not present in USED-KEYS."
+  (and
+   (key-valid-p key)
+   (not (member key used-keys))))
+
 (defun transient-menu-bar--generate-key (flag &optional used-keys)
-  "Generate hydra key for option FLAG that not present in USED-KEYS."
-  (when (> (length flag) 2)
-    (setq flag (replace-regexp-in-string "--" "" flag)))
-  (if (and flag (member flag '("--" "-"))
-           (not (member "-" used-keys)))
-      "-"
+  "Generate key for option FLAG that not present in USED-KEYS."
+  (let ((pred (apply-partially #'transient-menu-bar-shortcut-pred used-keys))
+        (parts (split-string flag "" t)))
     (or (seq-find
-         #'(lambda
-             (it)
-             (and
-              (key-valid-p it)
-              (let ((args
-                     (list it)))
-                (not
-                 (apply
-                  #'(lambda
-                      (&rest pre-args)
-                      (apply #'member
-                             (append pre-args
-                                     (list used-keys))))
-                  args)))))
-         (mapcar #'(lambda
-                     (&rest pre-args)
-                     (apply #'substring
-                            (append pre-args
-                                    (list 0 1))))
-                 (split-string
-                  flag "-" t)))
-        (seq-find #'(lambda
-                      (it)
-                      (and
-                       (key-valid-p it)
-                       (let ((args
-                              (list it)))
-                         (not
-                          (apply
-                           #'(lambda
-                               (&rest pre-args)
-                               (apply #'member
-                                      (append pre-args
-                                              (list used-keys))))
-                           args)))))
-                  (split-string flag "" t))
-        (seq-find #'(lambda
-                      (it)
-                      (and
-                       (key-valid-p it)
-                       (let ((args
-                              (list it)))
-                         (not
-                          (apply
-                           #'(lambda
-                               (&rest pre-args)
-                               (apply #'member
-                                      (append pre-args
-                                              (list used-keys))))
-                           args)))))
+         pred
+         (remove parts "-"))
+        (seq-find pred parts)
+        (seq-find pred
                   (seq-difference
                    (nconc (transient-menu-bar--get-alphabete "a")
                           (transient-menu-bar--get-alphabete "A")
                           (delete "\""
                                   (transient-menu-bar--get-alphabete "!"
                                                                      25)))
-                   used-keys)))))
+                   used-keys))
+        "")))
 
 (defun transient-menu-bar--menu-bar-keymap-bindings (binding &optional
                                                              used-keys)
@@ -178,9 +163,10 @@ USED-KEYS is a list of not allowed characters formatted to strings."
                                                           binding))))))
                    (let ((result))
                      (dolist (item sublist)
-                       (let ((subgenerated (ignore-errors
-                                             (transient-menu-bar--menu-bar-keymap-bindings
-                                              item))))
+                       (let ((subgenerated
+                              (ignore-errors
+                                (transient-menu-bar--menu-bar-keymap-bindings
+                                 item))))
                          (when subgenerated
                            (setq transients (append subgenerated
                                                     transients))
@@ -216,10 +202,11 @@ USED-KEYS is a list of not allowed characters formatted to strings."
                                   (let ((pl (transient-menu-bar--map-keywords
                                              item
                                              description))
-                                        (key (when description
-                                               (transient-menu-bar--generate-key
-                                                (downcase description)
-                                                used-keys))))
+                                        (key
+                                         (when description
+                                           (transient-menu-bar--generate-key
+                                            (downcase description)
+                                            used-keys))))
                                     (push key used-keys)
                                     (push (append
                                            (list
@@ -231,54 +218,60 @@ USED-KEYS is a list of not allowed characters formatted to strings."
                                              description)
                                             cmd)
                                            (append
-                                            (alist-get cmd
-                                                       transient-menu-bar-symbol-suffixes-props)
+                                            (alist-get
+                                             cmd
+                                             transient-menu-bar-symbol-suffixes-props)
                                             pl))
                                           result)))))))
                      (when result
                        (apply 'vector (reverse result)))))))
       (append (list `(transient-define-prefix
                        ,(intern
-                         (concat (string-join (split-string
-                                               (downcase
-                                                (if
-                                                    (symbolp
-                                                     title)
-                                                    (symbol-name
-                                                     title)
-                                                  title))
-                                               nil
-                                               t)
-                                              "-")
-                                 "-dispatch-menu-transient"))
+                         (concat (string-join
+                                  (split-string
+                                   (downcase
+                                    (if
+                                        (symbolp
+                                         title)
+                                        (symbol-name
+                                         title)
+                                      title))
+                                   nil
+                                   t)
+                                  "-")
+                                 (or
+                                  transient-menu-bar-generated-prefix-name-suffix
+                                  "-dispatch-menu-transient")))
                        () ,title ,(or vect)))
               transients))))
 
-(defun transient-menu-bar-format-transient (items &optional should-eval)
+(defun transient-menu-bar-print-generated-transients (items &optional
+                                                            should-eval)
   "Prettify transient ITEMS.
 If SHOULD-EVAL is non nil, also evaluate them."
   (let* ((print-length nil)
-         (result (pp-to-string (append
-                                (list 'eval-and-compile)
-                                items))))
+         (result (pp-to-string items)))
     (setq result (replace-regexp-in-string "(lambda[\s\t\n]+nil[\s\t\n]"
                                            "(lambda () "
                                            result))
     (setq result (replace-regexp-in-string
-                  "(transient-define-prefix[\s\t\r][a-zz-a-]+[\s\t]+\\(nil\\)"
+                  "(transient-define-prefix[\s\t\r][a-zz-a-/]+[\s\t]+\\(nil\\)"
                   "()\n\s\s"
                   result
                   nil
                   nil
                   1))
-    (with-current-buffer (get-buffer-create "*km-transient-generated*")
+    (with-current-buffer
+        (get-buffer-create "*transient-menu-bar*")
       (erase-buffer)
       (insert
-       ";;; km-transient-generated.el --- Generated transients -*- lexical-binding: t -*-\n\n;;;Code:\n\n"
+       ";;; transient-menu-bar.el --- Generated transients -*- lexical-binding: t -*-\n\n;;;Code:\n\n"
        result)
-      (emacs-lisp-mode)
-      (when should-eval
-        (eval-buffer)))))
+      (delay-mode-hooks
+        (emacs-lisp-mode)
+        (when should-eval
+          (eval-buffer)))
+      (pop-to-buffer (current-buffer)))))
 
 (defun transient-menu-bar--map-menu-map (map)
   "Generate transients from menu bar MAP."
@@ -293,20 +286,19 @@ If SHOULD-EVAL is non nil, also evaluate them."
                 map)
     (reverse result)))
 
-;;;###autoload
-(defun transient-menu-bar ()
-  "Evaluate and call `menu-bar-transient'."
-  (interactive)
+
+(defun transient-menu-bar-generate (menu-bar-map)
+  "Generate transient commands from MENU-BAR-MAP."
   (let ((transients (seq-filter
                      (lambda (it)
                        (eq (car it) 'transient-define-prefix))
-                     (transient-menu-bar--map-menu-map (menu-bar-keymap))))
+                     (transient-menu-bar--map-menu-map menu-bar-map)))
         (used-keys)
         (final-transient)
         (filtered (seq-uniq
                    (delq nil (mapcar (lambda (it)
                                        (ignore-errors (seq-find #'stringp it)))
-                                     (cdr (menu-bar-keymap)))))))
+                                     (cdr menu-bar-map))))))
     (dolist (it transients)
       (when-let* ((description (replace-regexp-in-string
                                 " transient menu[.]$"
@@ -324,10 +316,26 @@ If SHOULD-EVAL is non nil, also evaluate them."
     (setq final-transient `(transient-define-prefix menu-bar-transient ()
                              "Command dispatcher for menu bar."
                              ,(apply #'vector (reverse final-transient))))
-    (transient-menu-bar-format-transient (append transients (list
-                                                             final-transient)
-                                                 (list '(menu-bar-transient)))
-                                         t)))
+    (append
+     (list 'eval-and-compile)
+     (append transients (list
+                         final-transient)
+             (list '(menu-bar-transient))))))
+
+;;;###autoload
+(defun transient-menu-bar-pp-menu ()
+  "Generate and print transient prefixes from `menu-bar-keymap'."
+  (interactive)
+  (transient-menu-bar-print-generated-transients
+   (transient-menu-bar-generate
+    (menu-bar-keymap))))
+
+;;;###autoload
+(defun transient-menu-bar ()
+  "Generate, evaluate and call transient prefixes from `menu-bar-keymap'."
+  (interactive)
+  (eval (transient-menu-bar-generate (menu-bar-keymap))
+        t))
 
 (provide 'transient-menu-bar)
 ;;; transient-menu-bar.el ends here
