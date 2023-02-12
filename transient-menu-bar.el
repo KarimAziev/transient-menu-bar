@@ -28,6 +28,16 @@
 
 ;;; Code:
 
+(defcustom transient-menu-bar-symbol-suffixes-props '((next-buffer :transient t)
+                                                      (previous-buffer
+                                                       :transient t))
+  "Alist of functions and extra props for transient."
+  :group 'transient-menu-bar
+  :type '(alist
+          :key-type (function :tag "Symbol")
+          :value-type
+          (plist :options ((:transient boolean)))))
+
 (defun transient-menu-bar--get-alphabete (&optional start-char n)
   "Return N letters from alphabete starting at START-CHAR.
 Default value for START-CHAR is \"a\" and for N - 26."
@@ -149,11 +159,13 @@ DESCRIPTION should be a string."
                           (transient-menu-bar--get-alphabete "A")
                           (delete "\""
                                   (transient-menu-bar--get-alphabete "!"
-                                                             25)))
+                                                                     25)))
                    used-keys)))))
 
-(defun transient-menu-bar--menu-bar-keymap-bindings (binding)
-  "Return list of transient prefixes for menu bar BINDING."
+(defun transient-menu-bar--menu-bar-keymap-bindings (binding &optional
+                                                             used-keys)
+  "Return list of transient prefixes for menu bar BINDING.
+USED-KEYS is a list of not allowed characters formatted to strings."
   (let ((transients))
     (when-let* ((title
                  (or (seq-find 'stringp binding)
@@ -164,30 +176,30 @@ DESCRIPTION should be a string."
                                                       binding))
                                            (cdr (seq-find 'listp
                                                           binding))))))
-                   (let ((result)
-                         (used-keys))
+                   (let ((result))
                      (dolist (item sublist)
-                       (let* ((subresult
-                               (car
-                                (ignore-errors
-                                  (transient-menu-bar--menu-bar-keymap-bindings
-                                   item))))
-                              (subtransient
-                               (ignore-errors
-                                 (when subresult
-                                   (list
-                                    (transient-menu-bar--generate-key
-                                     (seq-find
-                                      'stringp
-                                      subresult))
-                                    (seq-find
-                                     'stringp
-                                     subresult)
-                                    (nth 1 subresult))))))
-                         (when subtransient
-                           (setq transients (append (list subresult)
+                       (let ((subgenerated (ignore-errors
+                                             (transient-menu-bar--menu-bar-keymap-bindings
+                                              item))))
+                         (when subgenerated
+                           (setq transients (append subgenerated
                                                     transients))
-                           (push subtransient result))
+                           (dolist (subresult subgenerated)
+                             (when subresult
+                               (let ((key (transient-menu-bar--generate-key
+                                           (seq-find
+                                            'stringp
+                                            subresult)
+                                           used-keys)))
+                                 (when key (push key used-keys))
+                                 (setq result
+                                       (append result
+                                               (list (list
+                                                      key
+                                                      (seq-find
+                                                       'stringp
+                                                       subresult)
+                                                      (nth 1 subresult)))))))))
                          (when-let ((description (seq-find 'stringp item))
                                     (cmd (seq-find 'functionp item)))
                            (cond ((stringp cmd)
@@ -218,7 +230,10 @@ DESCRIPTION should be a string."
                                               pl)
                                              description)
                                             cmd)
-                                           pl)
+                                           (append
+                                            (alist-get cmd
+                                                       transient-menu-bar-symbol-suffixes-props)
+                                            pl))
                                           result)))))))
                      (when result
                        (apply 'vector (reverse result)))))))
@@ -244,7 +259,7 @@ DESCRIPTION should be a string."
 If SHOULD-EVAL is non nil, also evaluate them."
   (let* ((print-length nil)
          (result (pp-to-string (append
-                                (list 'progn)
+                                (list 'eval-and-compile)
                                 items))))
     (setq result (replace-regexp-in-string "(lambda[\s\t\n]+nil[\s\t\n]"
                                            "(lambda () "

@@ -1,6 +1,6 @@
 * transient-menu-bar
 
-Transient access to menu-bar.
+Looking and choosing from a menubar with transient interface.
 
 ** Installation
 
@@ -33,3 +33,8 @@ Add the downloaded directory to the load path:
 =M-x transient-menu-bar RET=  
 
 will popup a transient menu with available commands.
+
+** Customization
+
+*** ~transient-menu-bar-symbol-suffixes-props~
+Alist of commands and extra props for transient, e.g. ~:transient: t~.
