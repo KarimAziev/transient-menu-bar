@@ -28,6 +28,8 @@
 
 ;;; Code:
 
+(eval-when-compile (require 'subr-x))
+
 (defvar transient-menu-bar-default-transient-commands
   '(flymake-goto-prev-error
     flymake-goto-next-error
