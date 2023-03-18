@@ -1,4 +1,4 @@
-;;; transient-menu-bar.el --- Transient menu for menu bar -*- lexical-binding: t; -*-
+;;; transient-menu-bar.el --- Transient menu for menu bar -*- lexical-binding: t; no-byte-compile: t-*-
 
 ;; Copyright (C) 2023 Karim Aziiev <karim.aziiev@gmail.com>
 ;; Author: Karim Aziiev <karim.aziiev@gmail.com>
@@ -28,7 +28,8 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'subr-x))
+(require 'subr-x)
+(require 'menu-bar)
 
 (defvar transient-menu-bar-default-suffixes-props
   '(flymake-goto-prev-error
@@ -113,33 +114,34 @@ DESCRIPTION should be a string."
     (dotimes (idx (length pl))
       (when (eq (logand idx 1) 0)
         (let ((plkey (nth idx pl)))
-          (let ((res (pcase plkey
-                       ((or :active :enable)
-                        `(:inapt-if-not
-                          (lambda ()
-                            ,(plist-get pl plkey))))
-                       ((or :visible :included)
-                        (setq new-pl
-                              `(:if
-                                (lambda ()
-                                  ,(plist-get pl plkey)))))
-                       (:label `(:description
-                                 (lambda ()
-                                   ,(plist-get pl plkey))))
-                       (:suffix
-                        `(:description
-                          (lambda ()
-                            (concat ,description
+          (unless (or (byte-code-function-p (plist-get pl plkey))
+                      (ignore-errors (eval (plist-get pl plkey))))
+            (let ((res (pcase plkey
+                         ((or :active :enable)
+                          `(:inapt-if-not
+                            (lambda ()
+                              (ignore-errors ,(plist-get pl plkey)))))
+                         ((or :visible :included)
+                          (setq new-pl
+                                `(:if
+                                  (lambda ()
                                     ,(plist-get pl plkey)))))
-                       (:selected `(:description
-                                    (lambda ()
-                                      (if ,(plist-get pl plkey)
-                                          (concat ,description
-                                                  " (Selected)")
-                                        ,description)))))))
-            (setq new-pl (append new-pl res))))))
+                         (:label `(:description
+                                   (lambda ()
+                                     ,(plist-get pl plkey))))
+                         (:suffix
+                          `(:description
+                            (lambda ()
+                              (concat ,description
+                                      ,(plist-get pl plkey)))))
+                         (:selected `(:description
+                                      (lambda ()
+                                        (if ,(plist-get pl plkey)
+                                            (concat ,description
+                                                    " (Selected)")
+                                          ,description)))))))
+              (setq new-pl (append new-pl res)))))))
     new-pl))
-
 
 (defun transient-menu-bar-print-generated-transients (items &optional
                                                            should-eval)
@@ -176,8 +178,12 @@ If SHOULD-EVAL is non nil, also evaluate them."
   "Generate `transient-define-prefix' forms from menu bar keymap."
   (setq transient-menu-bar-counter 0)
   (let (transients-menu-bars-all-prefixes)
-    (let ((res (seq-filter #'car
-                           (transient-menu-bar-recoursive (menu-bar-keymap)))))
+    (let
+        ((res (seq-filter
+               (lambda (it)
+                 (readablep (prin1-to-string it)))
+               (seq-filter #'car
+                           (transient-menu-bar-recoursive (menu-bar-keymap))))))
       (append
        (list 'eval-and-compile)
        transients-menu-bars-all-prefixes
@@ -201,8 +207,7 @@ If SHOULD-EVAL is non nil, also evaluate them."
 Put generated `transient-define-prefix' forms in
 the free variable `transients-menu-bars-all-prefixes'."
   (let ((result)
-        (keys)
-        (gensym-counter))
+        (keys))
     (cond ((keymapp map)
            (map-keymap
             (lambda (_it elt)
@@ -229,7 +234,7 @@ the free variable `transients-menu-bars-all-prefixes'."
                        (when (consp (car-safe plist))
                          (setq plist (cdr-safe plist)))
                        (setq km (nth 2 elt))
-                       (setq str (eval (nth 1 elt)))
+                       (setq str (ignore-errors (eval (nth 1 elt))))
                        (setq filter (plist-get plist :filter))
                        (if filter
                            (setq km (funcall filter km)))
@@ -248,7 +253,8 @@ the free variable `transients-menu-bars-all-prefixes'."
                 (when key
                   (push key keys))
                 (cond ((keymapp km)
-                       (let* ((rec (transient-menu-bar-recoursive km))
+                       (let* ((rec (ignore-errors (transient-menu-bar-recoursive
+                                                   km)))
                               (name (intern
                                      (string-join
                                       (split-string
@@ -266,7 +272,8 @@ the free variable `transients-menu-bars-all-prefixes'."
                                        nil
                                        ,str
                                        ,(apply #'vector rec))))
-                         (push tran transients-menu-bars-all-prefixes)
+                         (when (ignore-errors (eval tran))
+                           (push tran transients-menu-bars-all-prefixes))
                          (setq result (push
                                        (list
                                         key
@@ -275,7 +282,9 @@ the free variable `transients-menu-bars-all-prefixes'."
                                        result))))
                       ((and plist
                             (plist-get plist :description)
-                            (commandp km))
+                            (commandp km)
+                            (fboundp km)
+                            (not (byte-code-function-p km)))
                        (setq result
                              (push
                               (append
@@ -292,7 +301,9 @@ the free variable `transients-menu-bars-all-prefixes'."
                                 km
                                 transient-menu-bar-symbol-suffixes-props))
                               result)))
-                      ((functionp km)
+                      ((and (functionp km)
+                            (fboundp km)
+                            (not (byte-code-function-p km)))
                        (setq result
                              (push
                               (append
@@ -302,9 +313,10 @@ the free variable `transients-menu-bars-all-prefixes'."
                                (transient-menu-bar-get-plist-props
                                 str)
                                plist
-                               (alist-get
-                                km
-                                transient-menu-bar-symbol-suffixes-props))
+                               (unless (listp km)
+                                 (alist-get
+                                  km
+                                  transient-menu-bar-symbol-suffixes-props)))
                               result))))))
             map))
           ((listp map)
@@ -320,6 +332,7 @@ the free variable `transients-menu-bars-all-prefixes'."
                              (cons i (aref elt i)))
                             result)))))))
     (or (reverse result) map)))
+
 
 ;;;###autoload
 (defun transient-menu-bar-show-all ()
