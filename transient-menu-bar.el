@@ -321,11 +321,13 @@ the free variable `transients-menu-bars-all-prefixes'."
                             result)))))))
     (or (reverse result) map)))
 
+;;;###autoload
 (defun transient-menu-bar-show-all ()
   "Generate and print transients from `menu-bar-keymap'."
   (interactive)
   (transient-menu-bar-print-generated-transients (transient-menu-bar-generate)))
 
+;;;###autoload
 (defun transient-menu-bar ()
   "Create a transient menu of possible choices from `menu-bar-keymap'."
   (interactive)
