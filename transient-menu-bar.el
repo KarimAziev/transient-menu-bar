@@ -1,4 +1,4 @@
-;;; transient-menu-bar.el --- Transient menu for menu bar -*- lexical-binding: t; no-byte-compile: t-*-
+;;; transient-menu-bar.el --- Transient menu for menu bar -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2023 Karim Aziiev <karim.aziiev@gmail.com>
 ;; Author: Karim Aziiev <karim.aziiev@gmail.com>
