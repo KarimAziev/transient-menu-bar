@@ -1,4 +1,4 @@
-;;; transient-menu-bar.el --- Transient menu for menu bar -*- lexical-binding: t -*-
+;;; transient-menu-bar.el --- Transient menu for menu bar -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023 Karim Aziiev <karim.aziiev@gmail.com>
 ;; Author: Karim Aziiev <karim.aziiev@gmail.com>
@@ -28,9 +28,8 @@
 
 ;;; Code:
 
-(require 'subr-x)
-(require 'menu-bar)
-
+(eval-when-compile (require 'subr-x))
+(require 'transient)
 (defvar transient-menu-bar-default-suffixes-props
   '(flymake-goto-prev-error
     flymake-goto-next-error
@@ -114,8 +113,7 @@ DESCRIPTION should be a string."
     (dotimes (idx (length pl))
       (when (eq (logand idx 1) 0)
         (let ((plkey (nth idx pl)))
-          (unless (or (byte-code-function-p (plist-get pl plkey))
-                      (ignore-errors (eval (plist-get pl plkey))))
+          (when (readablep pl)
             (let ((res (pcase plkey
                          ((or :active :enable)
                           `(:inapt-if-not
@@ -125,7 +123,7 @@ DESCRIPTION should be a string."
                           (setq new-pl
                                 `(:if
                                   (lambda ()
-                                    ,(plist-get pl plkey)))))
+                                    (ignore-errors ,(plist-get pl plkey))))))
                          (:label `(:description
                                    (lambda ()
                                      ,(plist-get pl plkey))))
@@ -174,24 +172,22 @@ If SHOULD-EVAL is non nil, also evaluate them."
 (defvar transients-menu-bars-all-prefixes)
 (defvar transient-menu-bar-counter 0)
 
-(defun transient-menu-bar-generate ()
-  "Generate `transient-define-prefix' forms from menu bar keymap."
+;;;###autoload
+(defun transient-menu-bar-generate (menu-bar)
+  "Generate `transient-define-prefix' forms from MENU-BAR keymap."
   (setq transient-menu-bar-counter 0)
   (let (transients-menu-bars-all-prefixes)
-    (let
-        ((res (seq-filter
-               (lambda (it)
-                 (readablep (prin1-to-string it)))
-               (seq-filter #'car
-                           (transient-menu-bar-recoursive (menu-bar-keymap))))))
-      (append
-       (list 'eval-and-compile)
-       transients-menu-bars-all-prefixes
-       (list `(transient-define-prefix km-menu-bar-transient-main
-                nil
-                "Command dispatcher for menu bar."
-                ,(apply #'vector res)))
-       '((km-menu-bar-transient-main))))))
+    (let ((res (seq-filter #'car
+                           (transient-menu-bar-recoursive menu-bar))))
+      (let ((eval-expression-debug-on-error nil))
+        (list 'quote (eval (cons 'progn
+                                 (append transients-menu-bars-all-prefixes
+                                         (list `(transient-define-prefix
+                                                  km-menu-bar-transient-main
+                                                  nil
+                                                  "Command dispatcher for menu bar."
+                                                  ,(apply #'vector res)))))
+                           lexical-binding))))))
 
 (defun transient-menu-bar-get-plist-props (str)
   "Return extra props for STR."
@@ -234,7 +230,7 @@ the free variable `transients-menu-bars-all-prefixes'."
                        (when (consp (car-safe plist))
                          (setq plist (cdr-safe plist)))
                        (setq km (nth 2 elt))
-                       (setq str (ignore-errors (eval (nth 1 elt))))
+                       (setq str (eval (nth 1 elt)))
                        (setq filter (plist-get plist :filter))
                        (if filter
                            (setq km (funcall filter km)))
@@ -253,8 +249,7 @@ the free variable `transients-menu-bars-all-prefixes'."
                 (when key
                   (push key keys))
                 (cond ((keymapp km)
-                       (let* ((rec (ignore-errors (transient-menu-bar-recoursive
-                                                   km)))
+                       (let* ((rec (transient-menu-bar-recoursive km))
                               (name (intern
                                      (string-join
                                       (split-string
@@ -268,23 +263,22 @@ the free variable `transients-menu-bars-all-prefixes'."
                                            transient-menu-bar-counter))))
                                        nil t)
                                       "")))
-                              (tran `(transient-define-prefix ,name
-                                       nil
-                                       ,str
-                                       ,(apply #'vector rec))))
+                              (tran (when (listp rec)
+                                      `(transient-define-prefix ,name
+                                         nil
+                                         ,str
+                                         ,(apply 'vector rec)))))
                          (when (ignore-errors (eval tran))
-                           (push tran transients-menu-bars-all-prefixes))
-                         (setq result (push
-                                       (list
-                                        key
-                                        (format "%s" str)
-                                        name)
-                                       result))))
+                           (push tran transients-menu-bars-all-prefixes)
+                           (setq result (push
+                                         (list
+                                          key
+                                          (format "%s" str)
+                                          name)
+                                         result)))))
                       ((and plist
                             (plist-get plist :description)
-                            (commandp km)
-                            (fboundp km)
-                            (not (byte-code-function-p km)))
+                            (commandp km))
                        (setq result
                              (push
                               (append
@@ -301,9 +295,7 @@ the free variable `transients-menu-bars-all-prefixes'."
                                 km
                                 transient-menu-bar-symbol-suffixes-props))
                               result)))
-                      ((and (functionp km)
-                            (fboundp km)
-                            (not (byte-code-function-p km)))
+                      ((functionp km)
                        (setq result
                              (push
                               (append
@@ -313,10 +305,9 @@ the free variable `transients-menu-bars-all-prefixes'."
                                (transient-menu-bar-get-plist-props
                                 str)
                                plist
-                               (unless (listp km)
-                                 (alist-get
-                                  km
-                                  transient-menu-bar-symbol-suffixes-props)))
+                               (alist-get
+                                km
+                                transient-menu-bar-symbol-suffixes-props))
                               result))))))
             map))
           ((listp map)
@@ -338,13 +329,20 @@ the free variable `transients-menu-bars-all-prefixes'."
 (defun transient-menu-bar-show-all ()
   "Generate and print transients from `menu-bar-keymap'."
   (interactive)
-  (transient-menu-bar-print-generated-transients (transient-menu-bar-generate)))
+  (transient-menu-bar-print-generated-transients (transient-menu-bar-generate
+                                                  (menu-bar-keymap))))
+
 
 ;;;###autoload
-(defun transient-menu-bar ()
+(defun transient-menu-bar-dispatch ()
   "Create a transient menu of possible choices from `menu-bar-keymap'."
   (interactive)
-  (eval (transient-menu-bar-generate) t))
+  (run-hooks 'menu-bar-update-hook)
+  (when (and (boundp 'yank-menu)
+             (listp yank-menu))
+    (eval (transient-menu-bar-generate (menu-bar-keymap)))
+    (when (fboundp 'km-menu-bar-transient-main)
+      (funcall-interactively 'km-menu-bar-transient-main))))
 
 (provide 'transient-menu-bar)
 ;;; transient-menu-bar.el ends here
