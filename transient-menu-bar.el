@@ -151,7 +151,7 @@ If SHOULD-EVAL is non nil, also evaluate them."
                                            "(lambda () "
                                            result))
     (setq result (replace-regexp-in-string
-                  "(transient-define-prefix[\s\t\r][a-zz-a-/]+[\s\t]+\\(nil\\)"
+                  "(transient-define-prefix[\s\t\r][a-zz-a-0-9/]+[\s\t]+\\(nil\\)"
                   "()\n\s\s"
                   result
                   nil
