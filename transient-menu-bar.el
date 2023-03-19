@@ -329,8 +329,23 @@ the free variable `transients-menu-bars-all-prefixes'."
 (defun transient-menu-bar-show-all ()
   "Generate and print transients from `menu-bar-keymap'."
   (interactive)
-  (transient-menu-bar-print-generated-transients (transient-menu-bar-generate
-                                                  (menu-bar-keymap))))
+  (let (transients-menu-bars-all-prefixes)
+    (run-hooks 'menu-bar-update-hook)
+    (let ((res (seq-filter #'car
+                           (transient-menu-bar-recoursive (menu-bar-keymap)))))
+      (let ((eval-expression-debug-on-error nil))
+        (transient-menu-bar-print-generated-transients
+         (cons 'progn
+               (append
+                transients-menu-bars-all-prefixes
+                (list
+                 `(transient-define-prefix
+                    km-menu-bar-transient-main
+                    nil
+                    "Command dispatcher for menu bar."
+                    ,(apply
+                      #'vector
+                      res))))))))))
 
 
 ;;;###autoload
