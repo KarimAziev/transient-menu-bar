@@ -77,6 +77,7 @@
                                                   "paste"
                                                   "redo"
                                                   "toggle"
+                                                  "mode"
                                                   "cycle""next" "prev"
                                                   "back"
                                                   "previous" "more"
@@ -88,12 +89,22 @@ call the command and don't exit transient."
   :group 'transient-menu-bar
   :type '(repeat string))
 
+(defcustom transient-menu-bar-use-long-descriptions t
+  "Whether to use long help descriptions if available."
+  :group 'transient-menu-bar
+  :type 'boolean)
 
 
 (defcustom transient-menu-bar-top-menu-name 'transient-menu-bar-main-menu
   "The symbol to eval as a name of top level transient command."
   :group 'transient-menu-bar
   :type 'symbol)
+
+(defcustom transient-menu-bar-make-align-to 50
+  "Column to display radio and button indicators."
+  :group 'transient-menu-bar
+  :type 'integer)
+
 
 (defun transient-menu-bar-shortcut-pred (used-keys key)
   "Return non nil if KEY is a valid and not present in USED-KEYS."
@@ -150,7 +161,7 @@ Default value for START-CHAR is \"a\" and for N - 26."
                                                                          25)))
                        used-keys))
             "")))))
-(defvar transient-menu-bar-make-align-to 50)
+
 (defun transient-menu-bar-make-toggle-description (description value &optional
                                                                on-label
                                                                off-label
@@ -190,8 +201,10 @@ Add DIVIDER before result."
 
 
 
-(defun transient-menu-bar-get-button-props (plist description)
-  "Return new props for menu-bar's PLIST with DESCRIPTION."
+(defun transient-menu-bar-get-button-props (plist description &optional
+                                                  enabled-keyword)
+  "Return new props for menu-bar's PLIST with DESCRIPTION.
+ENABLED-KEYWORD is a either :active or :enabled."
   (let* ((btn (plist-get plist :button))
          (badges
           (pcase (car-safe btn)
@@ -201,62 +214,73 @@ Add DIVIDER before result."
           (pcase (car-safe btn)
             (:toggle '("[" . "]"))
             (:radio '("(" . ")")))))
-    `(:description
-      (lambda ()
-        (transient-menu-bar-make-toggle-description
-         ,(or
-           description
-           (plist-get
-            plist
-            :help)
-           "")
-         ,(cdr btn)
-         ,(car badges)
-         ,(cdr badges)
-         ,(car separators)
-         ,(cdr separators)))
-      :transient t)))
+    (if enabled-keyword
+        `(:description
+          (lambda ()
+            (let ((descr (transient-menu-bar-make-toggle-description
+                          ,(or
+                            description
+                            (plist-get
+                             plist
+                             :help)
+                            "")
+                          ,(cdr btn)
+                          ,(car badges)
+                          ,(cdr badges)
+                          ,(car separators)
+                          ,(cdr separators))))
+              (if (ignore-errors ,(plist-get plist enabled-keyword))
+                  descr
+                (propertize descr 'face 'transient-inapt-suffix))))
+          :transient t)
+      `(:description
+        (lambda ()
+          (let ((descr (transient-menu-bar-make-toggle-description
+                        ,(or
+                          description
+                          (plist-get
+                           plist
+                           :help)
+                          "")
+                        ,(cdr btn)
+                        ,(car badges)
+                        ,(cdr badges)
+                        ,(car separators)
+                        ,(cdr separators))))
+            descr))
+        :transient t))))
 
 (defun transient-menu-bar--map-plist (pl &optional description)
   "Map props of menu PL to transient slots.
 DESCRIPTION should be a string."
-  (let ((new-pl))
-    (dotimes (idx (length pl))
-      (when (eq (logand idx 1) 0)
-        (let ((plkey (nth idx pl)))
-          (let ((res
-                 (pcase plkey
-                   ((or :active :enable)
-                    `(:inapt-if-not
-                      (lambda ()
-                        (ignore-errors ,(plist-get pl plkey)))))
-                   ((or :visible :included)
-                    (setq new-pl
-                          `(:if
-                            (lambda ()
-                              (ignore-errors ,(plist-get pl plkey))))))
-                   (:label
-                    `(:description
-                      (lambda ()
-                        ,(plist-get pl plkey))))
-                   (:suffix
-                    `(:description
-                      (lambda ()
-                        (concat ,description
-                                ,(plist-get pl plkey)))))
-                   (:button
-                    (transient-menu-bar-get-button-props pl description))
-                   (:selected `(:description
-                                (lambda ()
-                                  (if ,(plist-get pl plkey)
-                                      (concat ,description
-                                              " (Selected)")
-                                    ,description))))
-                   (:help nil)
-                   (_
-                    nil))))
-            (setq new-pl (append new-pl res))))))
-    new-pl))
+  (let ((new-pl)
+        (button (plist-member pl :button))
+        (visible (or (plist-get pl :visible)
+                     (plist-get pl :included)))
+        (enabled-keyword (seq-find (apply-partially #'plist-member pl)
+                                   '(:active :enable))))
+    (when visible
+      (setq new-pl (plist-put new-pl :if
+                              `(lambda ()
+                                 (ignore-errors ,visible)))))
+    (if-let ((button-props
+              (when button (transient-menu-bar-get-button-props
+                            pl
+                            description
+                            enabled-keyword))))
+        (append new-pl button-props)
+      (or
+       (when enabled-keyword
+         (append new-pl
+                 `(:description
+                   (lambda ()
+                     (if (ignore-errors ,(plist-get pl
+                                                    enabled-keyword))
+                         ,description
+                       (propertize ,description
+                                   'face
+                                   'transient-inapt-suffix))))))
+       new-pl))))
 
 (defun transient-menu-bar-print-generated-transients (&rest items)
   "Prettify transient ITEMS.
@@ -276,9 +300,6 @@ If SHOULD-EVAL is non nil, also evaluate them."
     (with-current-buffer
         (get-buffer-create "*transient-menu-bar*")
       (erase-buffer)
-      (insert
-       ";;; generated.el --- Generated transients -*- lexical-binding: t -*-\n\n;;; Code:\n\n"
-       result)
       (delay-mode-hooks
         (emacs-lisp-mode))
       (pop-to-buffer (current-buffer)))))
@@ -487,7 +508,7 @@ PREFIX-NAME, SUFFIX-NAME and COUNTER are used for generated forms."
       `(lambda ()
          (interactive)
          (let ((inhibit-mouse-event-check t))
-           (call-interactively ',km
+           (call-interactively #',km
                                (transient-menu-bar-make-mouse-event))))
     `(lambda ()
        (interactive)
@@ -500,7 +521,7 @@ PREFIX-NAME, SUFFIX-NAME and COUNTER are used for generated forms."
       `(lambda ()
          (interactive)
          (let ((inhibit-mouse-event-check t))
-           (call-interactively ',km
+           (call-interactively #',km
                                (transient-menu-bar-make-mouse-event)
                                current-prefix-arg)))
     `(lambda ()
@@ -541,7 +562,7 @@ PREFIX-NAME, SUFFIX-NAME and COUNTER are used for generated forms."
                (setq km (funcall filter km)))
            (setq visible (plist-member plist :visible))
            (when visible
-             (unless (eval (plist-get plist :visible))
+             (unless (eval (plist-get plist :visible) t)
                (setq km nil)))
            (setq plist (transient-menu-bar--map-plist plist
                                                       str)))
@@ -554,6 +575,7 @@ PREFIX-NAME, SUFFIX-NAME and COUNTER are used for generated forms."
                 (setq str (car elt)))))
     (when (and km str)
       (list km str plist))))
+
 (defvar-local transient-menu-bar-last-prefix nil)
 
 (defun transient-menu-bar-mapper (key elt &optional keys prefix-name path)
@@ -633,7 +655,7 @@ PATH is used for recoursive purposes."
                                              " -> ")
                                ,(apply
                                  #'vector rec)]))))
-                   (when (ignore-errors (eval tran nil))
+                   (when (ignore-errors (eval tran t))
                      (push tran transient-menu-bars-all-prefixes)
                      (append (list
                               genkey
@@ -653,18 +675,21 @@ PATH is used for recoursive purposes."
                 ((member str menu-bar-separator)
                  str)
                 ((and
-                  (setq is-command (commandp km))
+                  (setq is-command (functionp km))
                   (plist-get plist :description))
                  (let ((merged (append
                                 (list genkey
                                       km
                                       :description
-                                      (plist-get
-                                       plist
-                                       :description))
+                                      (lambda ()
+                                        (plist-get
+                                         plist
+                                         :description)))
                                 (transient-menu-bar-merge-plist
-                                 (transient-menu-bar-get-plist-props
-                                  str)
+                                 (or (transient-menu-bar-get-plist-props
+                                      str)
+                                     (ignore-errors (transient-menu-bar-get-plist-props
+                                                     (symbol-name km))))
                                  plist)
                                 plist
                                 (alist-get
@@ -683,8 +708,10 @@ PATH is used for recoursive purposes."
                   (list genkey
                         (format "%s" str)
                         (transient-menu-bar-make-binary-event-command km))
-                  (transient-menu-bar-get-plist-props
-                   str)
+                  (or (transient-menu-bar-get-plist-props
+                       str)
+                      (ignore-errors (transient-menu-bar-get-plist-props
+                                      (symbol-name km))))
                   plist
                   (alist-get
                    km
@@ -703,8 +730,10 @@ PATH is used for recoursive purposes."
                   (list genkey
                         (format "%s" str)
                         (transient-menu-bar-make-event-command km))
-                  (transient-menu-bar-get-plist-props
-                   str)
+                  (or (transient-menu-bar-get-plist-props
+                       str)
+                      (ignore-errors (transient-menu-bar-get-plist-props
+                                      (symbol-name km))))
                   plist
                   (alist-get
                    km
@@ -713,14 +742,14 @@ PATH is used for recoursive purposes."
                 (is-command
                  (append
                   (list genkey (format "%s" str) km)
-                  (transient-menu-bar-get-plist-props
-                   str)
+                  (or (transient-menu-bar-get-plist-props
+                       str)
+                      (ignore-errors (transient-menu-bar-get-plist-props
+                                      (symbol-name km))))
                   plist
                   (alist-get
                    km
-                   transient-menu-bar-symbol-suffixes-props)))
-                (t
-                 nil)))))))
+                   transient-menu-bar-symbol-suffixes-props)))))))))
 
 
 
@@ -781,11 +810,12 @@ PATH is used for recoursive purposes."
             (read-number "Start from: "
                          transient-menu-bar-counter)))
     (run-hooks 'menu-bar-update-hook)
-    (let* ((name (completing-read "Symbol: "
-                                  (remove 'mouse-1
-                                          (mapcar #'car
-                                                  (cdr
-                                                   (menu-bar-keymap))))))
+    (let* ((name
+            (completing-read "Symbol: "
+                             (remove 'mouse-1
+                                     (mapcar #'car
+                                             (cdr
+                                              (menu-bar-keymap))))))
            (sym (intern name))
            (map
             (transient-menu-bar-filter-map (menu-bar-keymap)

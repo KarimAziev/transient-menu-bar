@@ -1,6 +1,17 @@
-* transient-menu-bar
+#+ATTR_HTML: align="center"; margin-right="auto"; margin-left="auto"
 
-Looking and choosing from a menubar with transient interface.
+Access to menu-bar and context bar with [[https://github.com/magit/transient][transient]].
+[[./demo.gif][./demo.gif]]
+
+* Table of Contents                                       :TOC_4_gh:noexport:
+  - [[#installation][Installation]]
+    - [[#manual][Manual]]
+    - [[#with-straight-and-use-package][With straight and use-package]]
+  - [[#main-commands][Main Commands]]
+    - [[#transient-menu-bar-dispatch][~transient-menu-bar-dispatch~]]
+    - [[#transient-menu-bar-dwim-minor][~transient-menu-bar-dwim-minor~]]
+    - [[#transient-menu-bar-context-menu-dispatch][~transient-menu-bar-context-menu-dispatch~]]
+    - [[#transient-menu-bar-resume-last][~transient-menu-bar-resume-last~]]
 
 ** Installation
 
@@ -8,33 +19,35 @@ Emacs >= 28.1 is required.
 
 *** Manual
 
-Download the source code and put it wherever you like, e.g. into =~/.emacs.d/transient-menu-bar/=
-
+- Download the source code and put it wherever you like, e.g. into =~/.emacs.d/transient-menu-bar/=
 #+begin_src shell :eval no
 git clone https://github.com/KarimAziev/transient-menu-bar.git ~/.emacs.d/transient-menu-bar/
 #+end_src
-
-Add the downloaded directory to the load path:
-
+- Add the downloaded directory to the load path:
 #+begin_src elisp :eval no
 (add-to-list 'load-path "~/.emacs.d/transient-menu-bar/")
 (require 'transient-menu-bar)
 #+end_src
-
+*** With straight and use-package
 #+begin_src elisp :eval no
 (use-package transient-menu-bar
   :straight (transient-menu-bar
              :repo "KarimAziev/transient-menu-bar"
              :type git
              :host github)
-  :commands (transient-menu-bar))
+  :commands (transient-menu-bar-dispatch
+             transient-menu-bar-dwim-minor
+             transient-menu-bar-context-menu-dispatch
+             transient-menu-bar-resume-last))
 #+end_src
-*** Usage
-=M-x transient-menu-bar RET=  
 
-will popup a transient menu with available commands.
+** Main Commands
 
-** Customization
-
-*** ~transient-menu-bar-symbol-suffixes-props~
-Alist of commands and extra props for transient, e.g. ~:transient: t~.
+*** ~transient-menu-bar-dispatch~
+Create a transient menu of possible choices from =menu-bar-keymap=.
+*** ~transient-menu-bar-dwim-minor~
+Create a menu with =menu-bar-keymap= commands that not present in temp buffer.
+*** ~transient-menu-bar-context-menu-dispatch~
+Create a transient menu from =context-menu-map=.
+*** ~transient-menu-bar-resume-last~
+Resume last local prefix command.
