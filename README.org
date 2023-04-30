@@ -1,6 +1,7 @@
 #+ATTR_HTML: align="center"; margin-right="auto"; margin-left="auto"
 
-Access to menu-bar and context bar with [[https://github.com/magit/transient][transient]].
+Access to menu and context bar with [[https://github.com/magit/transient][transient]].
+
 [[./demo.gif][./demo.gif]]
 
 * Table of Contents                                       :TOC_4_gh:noexport:
@@ -8,10 +9,6 @@ Access to menu-bar and context bar with [[https://github.com/magit/transient][tr
     - [[#manual][Manual]]
     - [[#with-straight-and-use-package][With straight and use-package]]
   - [[#main-commands][Main Commands]]
-    - [[#transient-menu-bar-dispatch][~transient-menu-bar-dispatch~]]
-    - [[#transient-menu-bar-dwim-minor][~transient-menu-bar-dwim-minor~]]
-    - [[#transient-menu-bar-context-menu-dispatch][~transient-menu-bar-context-menu-dispatch~]]
-    - [[#transient-menu-bar-resume-last][~transient-menu-bar-resume-last~]]
 
 ** Installation
 
@@ -43,11 +40,7 @@ git clone https://github.com/KarimAziev/transient-menu-bar.git ~/.emacs.d/transi
 
 ** Main Commands
 
-*** ~transient-menu-bar-dispatch~
-Create a transient menu of possible choices from =menu-bar-keymap=.
-*** ~transient-menu-bar-dwim-minor~
-Create a menu with =menu-bar-keymap= commands that not present in temp buffer.
-*** ~transient-menu-bar-context-menu-dispatch~
-Create a transient menu from =context-menu-map=.
-*** ~transient-menu-bar-resume-last~
-Resume last local prefix command.
+- ~transient-menu-bar-dispatch~ Create a transient menu of possible choices from =menu-bar-keymap=.
+- ~transient-menu-bar-dwim-minor~ Create a menu with =menu-bar-keymap= commands that not present in temp buffer.
+- ~transient-menu-bar-context-menu-dispatch~ Create a transient menu from =context-menu-map=.
+- ~transient-menu-bar-resume-last~ Resume last local prefix command.
