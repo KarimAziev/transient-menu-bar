@@ -589,7 +589,6 @@ Stores a list of all the generated commands in the free variable:
 `transient-menu-bars-all-prefixes'.
 
 PATH is used for recoursive purposes."
-  (run-hooks 'activate-menubar-hook)
   (if (and key (symbolp key)
            (string-match-p "^sep" (symbol-name key)))
       ""
