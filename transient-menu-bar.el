@@ -579,7 +579,7 @@ PREFIX-NAME, SUFFIX-NAME and COUNTER are used for generated forms."
 (defvar-local transient-menu-bar-last-prefix nil)
 
 (defun transient-menu-bar-mapper (key elt &optional keys prefix-name path)
-	"Map KEY and ELT to transient item.
+  "Map KEY and ELT to transient item.
 
 Bindings are uniq to KEYS.
 
@@ -589,7 +589,7 @@ Stores a list of all the generated commands in the free variable:
 `transient-menu-bars-all-prefixes'.
 
 PATH is used for recoursive purposes."
-	(if (and key (symbolp key)
+  (if (and key (symbolp key)
            (string-match-p "^sep" (symbol-name key)))
       ""
     (let ((res (transient-menu-bar-parse-menu-item elt)))
@@ -617,7 +617,7 @@ PATH is used for recoursive purposes."
           (setq is-command (commandp km))
           (cond ((keymapp km)
                  (when (symbolp km)
-	                 (setq km (indirect-function km)))
+                   (setq km (indirect-function km)))
                  (let* ((next-path (if path
                                        (append
                                         path
