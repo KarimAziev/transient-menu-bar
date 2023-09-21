@@ -5,7 +5,8 @@
 ;; URL: https://github.com/KarimAziev/transient-menu-bar
 ;; Version: 0.1.0
 ;; Keywords: convenience
-;; Package-Requires: ((emacs "28.1"))
+;; Package-Requires: ((emacs "29.1") (transient "0.4.1"))
+;; SPDX-License-Identifier: GPL-3.0-or-later
 
 ;; This file is NOT part of GNU Emacs.
 
