@@ -302,7 +302,8 @@ If SHOULD-EVAL is non nil, also evaluate them."
         (get-buffer-create "*transient-menu-bar*")
       (erase-buffer)
       (delay-mode-hooks
-        (emacs-lisp-mode))
+        (emacs-lisp-mode)
+        (insert result))
       (pop-to-buffer (current-buffer)))))
 
 (defvar transient-menu-bars-all-prefixes)
