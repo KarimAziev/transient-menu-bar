@@ -29,7 +29,6 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'subr-x))
 
 (require 'transient)
 
@@ -292,7 +291,7 @@ If SHOULD-EVAL is non nil, also evaluate them."
                                            "(lambda () "
                                            result))
     (setq result (replace-regexp-in-string
-                  "(transient-define-prefix[\s\t\r][a-zz-a-0-9/]+[\s\t]+\\(nil\\)"
+                  "(transient-define-prefix[\s\t\r][a-z0-9/-]+[\s\t]+\\(nil\\)"
                   "()\n\s\s"
                   result
                   nil
@@ -474,32 +473,63 @@ PREFIX-NAME, SUFFIX-NAME and COUNTER are used for generated forms."
     (let ((str (car (reverse parts))))
       (car (reverse (split-string str "-" t))))))
 
-(defun transient-menu-bar-merge-plist (plist-a plist-b)
-  "Add props from PLIST-B to PLIST-A."
-  (dotimes (idx (length plist-b))
-    (when (eq (logand idx 1) 0)
-      (let ((prop-name (nth idx plist-b)))
-        (let ((val (plist-get plist-b prop-name)))
-          (plist-put plist-a prop-name val)))))
-  plist-a)
+(defun transient-menu-bar-merge-plist (&rest plists)
+  "Merge all given property lists into a single one, overwriting duplicate keys.
 
-(defun transient-menu-bar-make-mouse-event ()
-  "Return syntetic mouse event."
+Argument PLISTS is a list of property lists."
+  (let ((result-plist '()))
+    (dolist (plist plists)
+      (while plist
+        (setq result-plist (plist-put result-plist (car plist) (cadr plist)))
+        (setq plist (cddr plist))))
+    result-plist))
+
+(defun transient-menu-bar-plist-omit (keys plist)
+  "Remove KEYS and values from PLIST."
+  (let* ((result (list 'head))
+         (last result))
+    (while plist
+      (let* ((key (pop plist))
+             (val (pop plist))
+             (new (and (not (memq key keys))
+                       (list key val))))
+        (when new
+          (setcdr last new)
+          (setq last (cdr new)))))
+    (cdr result)))
+
+(defun transient-menu-bar-plist-pick (keywords pl)
+  "Pick values from a plist based on given KEYWORDS.
+
+Argument PL is a property list that contains key-value pairs.
+Argument KEYWORDS is a list of KEYWORDS used to pick specific values from the
+property list."
+  (let ((result)
+        (keyword))
+    (while (setq keyword (pop keywords))
+      (when-let ((value (plist-get pl keyword)))
+        (unless (null value)
+          (setq result (append result (list keyword value))))))
+    result))
+
+(defun transient-menu-bar-make-mouse-event (&optional pos)
+  "Return syntetic mouse event at POS."
+  (unless pos (setq pos (point)))
   `(mouse-1             ;; button
     (,(selected-window) ;; window
      ,(1+
-       (point))
-     ;; position
+       pos)
+       ;; position
      (0 . 0) ;; window-relative pixel
      0       ;; timestamp
      nil     ;; object
-     ,(point)
+     ,pos
      ;; text position
      (,(current-column)
       . ;; column
       ,(line-number-at-pos
-        (point))) ;; line
-     nil          ;; image
+        pos)) ;; line
+     nil      ;; image
      (0 . 0)
      ;; object-relative pixel
      (1 . 1))))
@@ -517,6 +547,7 @@ PREFIX-NAME, SUFFIX-NAME and COUNTER are used for generated forms."
        (let ((inhibit-mouse-event-check t))
          (call-interactively ,km
                              (transient-menu-bar-make-mouse-event))))))
+
 (defun transient-menu-bar-make-binary-event-command (km)
   "Return lambda that call KM with fake mouse event and `current-prefix-arg'."
   (if (symbolp km)
@@ -579,6 +610,14 @@ PREFIX-NAME, SUFFIX-NAME and COUNTER are used for generated forms."
       (list km str plist))))
 
 (defvar-local transient-menu-bar-last-prefix nil)
+
+(defun transient-menu-bar-get-extra-props (sym description)
+  (transient-menu-bar-merge-plist
+   (or (transient-menu-bar-get-plist-props description)
+       (ignore-errors
+         (transient-menu-bar-get-plist-props
+          (symbol-name sym))))
+   (alist-get sym transient-menu-bar-symbol-suffixes-props)))
 
 (defun transient-menu-bar-mapper (key elt &optional keys prefix-name path)
   "Map KEY and ELT to transient item.
@@ -677,24 +716,19 @@ PATH is used for recoursive purposes."
                 ((and
                   (setq is-command (functionp km))
                   (plist-get plist :description))
-                 (let ((merged (append
-                                (list genkey
-                                      km
-                                      :description
-                                      (lambda ()
-                                        (plist-get
-                                         plist
-                                         :description)))
-                                (transient-menu-bar-merge-plist
-                                 (or (transient-menu-bar-get-plist-props
-                                      str)
-                                     (ignore-errors (transient-menu-bar-get-plist-props
-                                                     (symbol-name km))))
-                                 plist)
-                                plist
-                                (alist-get
-                                 km
-                                 transient-menu-bar-symbol-suffixes-props))))
+                 (let ((merged
+                        (append
+                         (list genkey
+                               km)
+                         (transient-menu-bar-plist-pick
+                          '(:description) plist)
+                         (let ((pl (transient-menu-bar-plist-omit
+                                    '(:description)
+                                    plist)))
+                           (transient-menu-bar-merge-plist
+                            pl
+                            (transient-menu-bar-get-extra-props
+                             km str))))))
                    merged))
                 ((ignore-errors
                    (and is-command
@@ -708,15 +742,9 @@ PATH is used for recoursive purposes."
                   (list genkey
                         (format "%s" str)
                         (transient-menu-bar-make-binary-event-command km))
-                  (or (transient-menu-bar-get-plist-props
-                       str)
-                      (ignore-errors (transient-menu-bar-get-plist-props
-                                      (symbol-name km))))
-                  plist
-                  (alist-get
-                   km
-                   transient-menu-bar-symbol-suffixes-props)
-                  (list :transient nil)))
+                  (transient-menu-bar-merge-plist
+                   (list :transient nil) plist
+                   (transient-menu-bar-get-extra-props km str))))
                 ((ignore-errors
                    (and is-command
                         (when-let ((intype (car-safe
@@ -730,26 +758,17 @@ PATH is used for recoursive purposes."
                   (list genkey
                         (format "%s" str)
                         (transient-menu-bar-make-event-command km))
-                  (or (transient-menu-bar-get-plist-props
-                       str)
-                      (ignore-errors (transient-menu-bar-get-plist-props
-                                      (symbol-name km))))
-                  plist
-                  (alist-get
-                   km
-                   transient-menu-bar-symbol-suffixes-props)
-                  (list :transient nil)))
+                  (transient-menu-bar-merge-plist
+                   plist
+                   (transient-menu-bar-get-extra-props
+                    km str)
+                   (list :transient nil))))
                 (is-command
                  (append
                   (list genkey (format "%s" str) km)
-                  (or (transient-menu-bar-get-plist-props
-                       str)
-                      (ignore-errors (transient-menu-bar-get-plist-props
-                                      (symbol-name km))))
-                  plist
-                  (alist-get
-                   km
-                   transient-menu-bar-symbol-suffixes-props)))))))))
+                  (transient-menu-bar-merge-plist
+                   plist
+                   (transient-menu-bar-get-extra-props km str))))))))))
 
 
 
@@ -798,6 +817,17 @@ PATH is used for recoursive purposes."
                 map)
     (cons 'keymap result)))
 
+(defun transient-menu-bar-keymap-keys (map)
+  "Filter MAP by SYMS."
+  (let ((result))
+    (map-keymap (lambda (key _v)
+                  (when (and (symbolp key)
+                             (not (string-match-p "^separator-[0-9]+$"
+                                                  (symbol-name key))))
+                    (push key result)))
+                map)
+    (reverse result)))
+
 
 ;;;###autoload
 (defun transient-menu-bar-show-one ()
@@ -810,19 +840,27 @@ PATH is used for recoursive purposes."
             (read-number "Start from: "
                          transient-menu-bar-counter)))
     (run-hooks 'menu-bar-update-hook)
-    (let* ((name
+    (let* ((keymap-fn (intern (completing-read "Menu: "
+                                               '(menu-bar-keymap
+                                                 context-menu-map)
+                                               nil t)))
+           (keymap
+            (pcase keymap-fn
+              ('context-menu-map
+               (context-menu-map
+                (transient-menu-bar-make-mouse-event)))
+              (_
+               (funcall keymap-fn))))
+           (name
             (completing-read "Symbol: "
-                             (remove 'mouse-1
-                                     (mapcar #'car
-                                             (cdr
-                                              (menu-bar-keymap))))))
+                             (transient-menu-bar-keymap-keys keymap)))
            (sym (intern name))
            (map
-            (transient-menu-bar-filter-map (menu-bar-keymap)
+            (transient-menu-bar-filter-map keymap
                                            sym)))
       (transient-menu-bar-recoursive map
                                      (read-string "transient-define-prefix "
-                                                  name))
+                                                  (concat name "-")))
       (let ((eval-expression-debug-on-error nil))
         (apply #'transient-menu-bar-print-generated-transients
                transient-menu-bars-all-prefixes)))))
