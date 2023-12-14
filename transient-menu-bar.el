@@ -227,6 +227,7 @@ If not provided, it defaults to the character \".\"."
 
 
 
+
 (defun transient-menu-bar-get-button-props (plist description &optional
                                                   enabled-keyword)
   "Generate button properties for a transient menu bar in a formatted string.
@@ -238,7 +239,6 @@ Argument DESCRIPTION is a string that represents the description of the button.
 
 Optional argument ENABLED-KEYWORD is a keyword that, if present, is used to
 determine whether the button is enabled or not."
-
   (let* ((btn (plist-get plist :button))
          (badges
           (pcase (car-safe btn)
@@ -263,25 +263,24 @@ determine whether the button is enabled or not."
                           ,(cdr badges)
                           ,(car separators)
                           ,(cdr separators))))
-              (if (ignore-errors ,(plist-get plist enabled-keyword))
-                  descr
-                (propertize descr 'face 'transient-inapt-suffix))))
+             (if (ignore-errors ,(plist-get plist enabled-keyword))
+                 descr
+               (propertize descr 'face 'transient-inapt-suffix))))
           :transient t)
       `(:description
         (lambda ()
-          (let ((descr (transient-menu-bar-make-toggle-description
-                        ,(or
-                          description
-                          (plist-get
-                           plist
-                           :help)
-                          "")
-                        ,(cdr btn)
-                        ,(car badges)
-                        ,(cdr badges)
-                        ,(car separators)
-                        ,(cdr separators))))
-            descr))
+          (transient-menu-bar-make-toggle-description
+           ,(or
+             description
+             (plist-get
+              plist
+              :help)
+             "")
+           ,(cdr btn)
+           ,(car badges)
+           ,(cdr badges)
+           ,(car separators)
+           ,(cdr separators)))
         :transient t))))
 
 (defun transient-menu-bar--map-plist (pl &optional description)
@@ -381,7 +380,7 @@ ARGS is a list of strings, symbols or integers."
                  (if (symbolp it)
                      (symbol-name it)
                    (format "%s" it)))))
-             (remove nil args)
+             (flatten-list (remove nil args))
              ""))
 
 
@@ -732,7 +731,6 @@ Optional argument PREFIX-NAME is a string to prepend to the name of the
 corresponding menu item.
 
 Optional argument PATH is used for recursive purposes."
-
   (if (and key (symbolp key)
            (string-match-p "^sep" (symbol-name key)))
       ""
@@ -772,7 +770,7 @@ Optional argument PATH is used for recursive purposes."
                                             key))))
                         (rec (transient-menu-bar-recoursive
                               km
-                              nil
+                              prefix-name
                               nil
                               next-path))
                         (name (make-symbol
@@ -795,22 +793,14 @@ Optional argument PATH is used for recursive purposes."
                                                           ""
                                                           str)))
                               [,(string-join next-path
-                                             " -> ")
+                                 " -> ")
                                ,(apply
                                  #'vector rec)]))))
                    (push tran transient-menu-bars-all-prefixes)
                    (append (list
                             genkey
-                            name
-                            :description (lambda ()
-                                           (transient-menu-bar-make-toggle-description
-                                            str
-                                            (> (length rec) 0)
-                                            ""
-                                            ""
-                                            " "
-                                            (format "%s" (length rec))
-                                            ".")))
+                            str
+                            name)
                            plist)))
                 ((not km)
                  sep)
