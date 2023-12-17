@@ -407,6 +407,7 @@ PREFIX-NAME, SUFFIX-NAME and COUNTER are used for generated forms."
            ,top-menu-name
            nil
            "Command dispatcher for menu bar."
+           :refresh-suffixes t
            ,(apply
              #'vector
              res)))))))
@@ -792,6 +793,7 @@ Optional argument PATH is used for recursive purposes."
                                                           "[\\.]+$"
                                                           ""
                                                           str)))
+                              :refresh-suffixes t
                               [,(string-join next-path
                                  " -> ")
                                ,(apply
