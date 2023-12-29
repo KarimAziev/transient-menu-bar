@@ -577,7 +577,7 @@ property list."
 
 (defun transient-menu-bar-make-mouse-event (&optional pos)
   "Return syntetic mouse event at POS."
-  (unless pos (setq pos (point)))
+  (unless pos (setq pos (window-point)))
   `(mouse-1             ;; button
     (,(selected-window) ;; window
      ,(1+
