@@ -359,8 +359,6 @@ ARGS is a list of strings, symbols or integers."
              (flatten-list (remove nil args))
              ""))
 
-
-
 (defun transient-menu-bar--plist-flags (str)
   "Extract properties from STR if it matches indicators.
 
@@ -828,7 +826,6 @@ PATH is used for recoursive purposes."
 
 (defalias 'transient-menu-bar-dwim-minor #'transient-menu-bar-dwim-menu)
 
-
 ;;;###autoload (autoload 'transient-menu-bar-context-menu "transient-menu-bar" nil t)
 (transient-define-prefix transient-menu-bar-context-menu ()
   "Generate transient from context menu menu bar."
@@ -853,7 +850,6 @@ PATH is used for recoursive purposes."
 (defalias 'transient-menu-bar-context-menu-dispatch
   #'transient-menu-bar-context-menu)
 
-
 ;;;###autoload (autoload 'transient-menu-bar "transient-menu-bar" nil t)
 (transient-define-prefix transient-menu-bar ()
   "Generate transient prefixes from the menu bar."
@@ -877,7 +873,6 @@ PATH is used for recoursive purposes."
   (transient-setup #'transient-menu-bar))
 
 (defalias 'transient-menu-bar-dispatch #'transient-menu-bar)
-
 
 (provide 'transient-menu-bar)
 ;;; transient-menu-bar.el ends here
