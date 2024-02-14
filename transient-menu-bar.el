@@ -25,7 +25,25 @@
 
 ;;; Commentary:
 
-;;  This package provides transient menu access to the menu bar.
+;; transient-menu-bar.el provides a handy way to integrate Emacs menu bar
+;; features into the Transient commands.
+
+;; The main features include:
+;; - A transient interface for the Emacs menu bar, preserving familiar menu
+;;   item names and hierarchies.
+;; - Support for generating transient commands dynamically based on the
+;;   current state of the menu bar, ensuring context-awareness for available
+;;   commands.
+;; - Customizable indicator list and indicators that allow users to define
+;;   which actions should be transient, promoting efficiency in command
+;;   execution.
+;; - Smooth transitions between transient menus corresponding to submenus in
+;;   the menu bar, maintaining the nested structure of menus.
+
+;; As an Emacs Lisp package, transient-menu-bar.el requires at least Emacs
+;; 29.1 and the Transient 0.5.3 library to work correctly. It is designed to be
+;; free software under the GPL-3.0-or-later license and respects the free
+;; software philosophy.
 
 ;;; Code:
 

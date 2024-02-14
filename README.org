@@ -34,8 +34,7 @@ git clone https://github.com/KarimAziev/transient-menu-bar.git ~/.emacs.d/transi
              :host github)
   :commands (transient-menu-bar-dispatch
              transient-menu-bar-dwim-minor
-             transient-menu-bar-context-menu-dispatch
-             transient-menu-bar-resume-last))
+             transient-menu-bar-context-menu-dispatch))
 #+end_src
 
 ** Main Commands
@@ -43,4 +42,4 @@ git clone https://github.com/KarimAziev/transient-menu-bar.git ~/.emacs.d/transi
 - ~transient-menu-bar-dispatch~ Create a transient menu of possible choices from =menu-bar-keymap=.
 - ~transient-menu-bar-dwim-minor~ Create a menu with =menu-bar-keymap= commands that not present in temp buffer.
 - ~transient-menu-bar-context-menu-dispatch~ Create a transient menu from =context-menu-map=.
-- ~transient-menu-bar-resume-last~ Resume last local prefix command.
+
