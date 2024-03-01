@@ -848,7 +848,8 @@ PATH is used for recoursive purposes."
 ;;;###autoload (autoload 'transient-menu-bar-context-menu "transient-menu-bar" nil t)
 (transient-define-prefix transient-menu-bar-context-menu ()
   "Generate transient from context menu menu bar."
-  [:setup-children
+  [:class transient-column
+   :setup-children
    (lambda (&rest _args)
      (mapcar
       (apply-partially
@@ -872,7 +873,8 @@ PATH is used for recoursive purposes."
 ;;;###autoload (autoload 'transient-menu-bar "transient-menu-bar" nil t)
 (transient-define-prefix transient-menu-bar ()
   "Generate transient prefixes from the menu bar."
-  [:setup-children
+  [:class transient-column
+   :setup-children
    (lambda (&rest _args)
      (mapcar
       (apply-partially
