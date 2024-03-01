@@ -650,7 +650,7 @@ Optional argument PATH is used for recursive purposes."
                                         (mapcar
                                          (apply-partially
                                           #'transient-parse-suffix
-                                          transient--prefix)
+                                          (oref transient--prefix command))
                                          (remove nil
                                           (transient-menu-bar-generate-transients
                                            km
@@ -852,7 +852,7 @@ PATH is used for recoursive purposes."
      (mapcar
       (apply-partially
        #'transient-parse-suffix
-       transient--prefix)
+       (oref transient--prefix command))
       (remove nil
               (transient-menu-bar-generate-transients
                (context-menu-map (transient-menu-bar--create-mouse-event))))))]
@@ -876,7 +876,7 @@ PATH is used for recoursive purposes."
      (mapcar
       (apply-partially
        #'transient-parse-suffix
-       transient--prefix)
+       (oref transient--prefix command))
       (remove nil
               (transient-menu-bar-generate-transients
                (menu-bar-keymap)
