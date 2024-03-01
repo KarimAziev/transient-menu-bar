@@ -645,6 +645,7 @@ Optional argument PATH is used for recursive purposes."
                                       :description (string-join
                                                     next-path
                                                     " -> ")
+                                      :class 'transient-column
                                       :setup-children
                                       (lambda (&rest _args)
                                         (mapcar
