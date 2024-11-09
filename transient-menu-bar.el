@@ -334,7 +334,7 @@ button."
       (setq new-pl (plist-put new-pl :if
                               `(lambda ()
                                  (ignore-errors ,visible)))))
-    (if-let ((button-props
+    (if-let* ((button-props
               (when button (transient-menu-bar--button-props
                             pl
                             description
@@ -357,7 +357,7 @@ button."
 
 (defun transient-menu-bar--increment-counter (sym)
   "Increment symbol value SYM if it is an integer."
-  (when-let ((value (symbol-value sym)))
+  (when-let* ((value (symbol-value sym)))
     (when (integerp value)
       (set
        sym
@@ -437,7 +437,7 @@ property list."
   (let ((result)
         (keyword))
     (while (setq keyword (pop keywords))
-      (when-let ((value (plist-get pl keyword)))
+      (when-let* ((value (plist-get pl keyword)))
         (unless (null value)
           (setq result (append result (list keyword value))))))
     result))
@@ -692,7 +692,7 @@ Optional argument PATH is used for recursive purposes."
                 ((ignore-errors
                    (and is-command
                         (eq 2 (car-safe (func-arity km)))
-                        (when-let ((intype (car-safe
+                        (when-let* ((intype (car-safe
                                             (cdr-safe (interactive-form
                                                        km)))))
                           (and (stringp intype)
@@ -706,7 +706,7 @@ Optional argument PATH is used for recursive purposes."
                    (transient-menu-bar-extra-properties km str))))
                 ((ignore-errors
                    (and is-command
-                        (when-let ((intype (car-safe
+                        (when-let* ((intype (car-safe
                                             (cdr-safe (interactive-form
                                                        km)))))
                           (or (equal intype "e")
@@ -809,7 +809,7 @@ PATH is used for recoursive purposes."
                              (not (assq key menu-temp))
                              (listp v))
                     (setq idx 0)
-                    (when-let ((label (capitalize (symbol-name key)))
+                    (when-let* ((label (capitalize (symbol-name key)))
                                (res (transient-menu-bar-generate-transients
                                      (cons
                                       'keymap
